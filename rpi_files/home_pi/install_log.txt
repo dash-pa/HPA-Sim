@@ -13,3 +13,5 @@ sudo emacs /etc/init.d/startup.bash
 ln -s /etc/init.d/startup.bash ./startup.bash
 sudo update-rc.d startup.bash defaults
 // run startup.bash in rc.local because the update-rc thing doesn't work
+
+// Added /boot/sumpac/config.xml to be used by ble.py

@@ -2,17 +2,49 @@
 
 from __future__ import print_function
 import gattlib, os, time, struct, sys, serial, traceback
+import xml.etree.ElementTree as xmlET
 
-# The BLE address of the Vector 3 pedals
-# find addr via hcitool
-BLE_DEVICE_ADDRESS = 'EF:76:B5:CC:36:A0'
-# The Bluez handle of the cycling power characteristic (powChar assigned number: 0x2a63)
-# Find with `sudo gatttool -t random -b $BLE_DEVICE_ADDRESS --char-desc | grep -i 2a63`
-POWER_CHARACTERISTIC_HANDLE = 0x28
+FATAL_LOG_FILE = '/boot/sumpac/crashlog.txt'
+
+CONFIG_FILE = '/boot/sumpac/config.xml'
+SUPPORTED_CONF_VERSION = (1, 0) # (major, minor), aka '1.0' = (1, 0)
 
 # Serial port configuration (no parity, 1 stop bit, 8 data bits)
 SERIAL_PORT = '/dev/ttyAMA0'
 BAUD_RATE = 115200
+
+# Load in config XML
+print('Loading config file...')
+fatalFile = open(FATAL_LOG_FILE, 'w+')
+try:
+    tree = xmlET.parse(CONFIG_FILE)
+    root = tree.getroot()
+    
+    conf_ver_major, conf_ver_minor = list(int(x) for x in root.find('version').text.split('.'))
+    # Major versions must match, minor version must be equal or greater
+    if not (conf_ver_major == SUPPORTED_CONF_VERSION[0]):
+        raise Exception('Expected major version =%d, but got %d.' % (SUPPORTED_CONF_VERSION[0], conf_ver_major))
+    if not (conf_ver_minor >= SUPPORTED_CONF_VERSION[1]):
+        raise Exception('Expected minor version >=%d, but got %d.' % (SUPPORTED_CONF_VERSION[1], conf_ver_minor))
+    
+    
+    # The BLE address of the Vector 3 pedals
+    # find addr via hcitool
+    BLE_DEVICE_ADDRESS = root.find('ble_dev_addr').text
+    # The Bluez handle of the cycling power characteristic (powChar assigned number: 0x2a63)
+    # Find with `sudo gatttool -t random -b $BLE_DEVICE_ADDRESS --char-desc | grep -i 2a63`
+    POWER_CHARACTERISTIC_HANDLE = eval(root.find('char_handle_power').text)
+
+    print('Config loaded and valid.')
+    print('BLE dev addr:', BLE_DEVICE_ADDRESS)
+    print('pwr char handle:', POWER_CHARACTERISTIC_HANDLE)
+except:
+    traceback.print_exc()
+    print('[%s] Crashed trying to load config file "%s". Traceback: \n%s\n' % (time.ctime(), CONFIG_FILE, traceback.format_exc()), file=fatalFile)
+    fatalFile.close()
+    sys.exit(1)
+
+    
 # Structure of packets sent over serial port
 def watts2packet(watts):
     return struct.pack('<HHHH', 0xFFFF, watts, (-watts) & 0xFFFF, 0xBEEF)

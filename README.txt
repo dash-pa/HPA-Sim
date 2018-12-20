@@ -30,8 +30,10 @@ The Arduino Micro can just be plugged into a computer USB port, no special power
 
 
  -- using RPi --
-Logging is disabled by default because I haven't written anything to prevent the logs from becoming enormous over time.
-To enable logging, comment the command in /home/pi/startup_screen_cmd.bash and then uncomment the other command.
+/boot is the 69MiB (70.7MB) fat32 filesystem on the 6th partition of the SD card once everything has been installed correctly. When the SD card is auto-mounted in Windows or another OS, that filesystem should be one of the volumes that shows up.
+The /boot/sumpac/config.xml file is the config file for the BLE converting program. the ble_dev_addr will need to be set to the BLE device address of the Vector 3 pedals for everything to work.
+Logging can be turned on or off by creating or deleting (respectively) /boot/sumpac/debug.txt, the contents of the file are irrelevent. Log files will show up in /boot/sumpac when debugging is enabled.
+Logging should be considered a debugging feature and be turned off during normal use because I haven't written anything to prevent the logs from becoming enormous over time.
  ---------------
 
 
@@ -42,5 +44,5 @@ home_pi was /home/pi, there were other files from the Debian install that were i
 Of particular interest is home_pi/install_log.txt, which contains my notes of what I was doing to get the libraries installed and startup scripts enabled.
 home_pi/startup.bash is actually supposed to be a link to /etc/init.d/startup.bash, so it should be put there and linked if installing all this from scratch.
 home_pi/ OscarAcena-pygattlib-blahblahblah and pybluez can be downloaded from the internet. Also, you only need one, I just downloaded both while figuring out how to get pygattlib installed. See install_log.txt for a little more info.
+boot_sumpac was /boot/sumpac, it contains the config.xml file for the ~/ble.py program. ~/ble.py and ~/startup.bash use this directory. Config files were put in /boot because it's a fat32 filesystem that Windows can easily mount.
  ---------------
-

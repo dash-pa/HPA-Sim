@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<sumpac_config>
+  <!--
+      Note: debug logs will be written to when /boot/sumpac/debug.txt exists. Delete that file to turn off debugging. Create it with anything or nothing in it to enable debugging.
+  -->
+
+  
+  <!-- For the Python program to check if this config file is compatible. -->
+  <version>0.1</version>
+  <!--
+      The BLE address of the Vector 3 pedals
+      find addr via hcitool
+  -->
+  <ble_dev_addr>0F:76:B5:CC:36:A0</ble_dev_addr>
+  <!--
+      The Bluez handle of the cycling power characteristic (powChar assigned number: 0x2a63)
+      Find with `sudo gatttool -t random -b $BLE_DEVICE_ADDRESS - -char-desc | grep -i 2a63` REPLACE `- -char-desc` WITH (dash)(dash)char(dash)decr. XML comments disallow - - without a space in between.
+      This value should be formatted as python code that will evaluate to the desired handle integer.
+  -->
+  <char_handle_power>0x28</char_handle_power>
+</sumpac_config>
