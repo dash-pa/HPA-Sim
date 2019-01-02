@@ -2,9 +2,40 @@
 #include "Joystick.h"
 #include <stdint.h>
 
+// Pin for the view angle potentiometer, comment out to disable this functionality
+#define PIN_VIEWPOT A2
+// Calibration values
+#define VIEWPOT_MAX 1023
+#define VIEWPOT_MIN 0
+// Uncomment to reverse the potentiometer direction (software alternative to swapping the power wires of the pot)
+//#define VIEWPOT_REVERSE
+// Which joystick buttons are bound to view left and right in the simulator
+#define JOY_BTN_VIEWRIGHT 10
+#define JOY_BTN_VIEWLEFT 11
+
+
+// Pin for the temporary boost button, comment out to disable this functionality
+#define PIN_BOOST 4
+// Uncomment if this input is active-low
+#define PIN_BOOST_ACTIVELOW
+// Boost button duration in milliseconds
+#define BOOST_DURATION 10000L
+// Set to 2.0f for 2x boost, 3.0f for 3x boost, etc
+#define BOOST_MULTIPLIER 2.0f
+
+
+// Pin for the reset simulation button (not functional)
+#define PIN_RESET 7
+
+// Display heartbeat on this joystick button output, comment out to disable this functionality
+#define JOY_BTN_BLINK 0
+// Display fake data state on a joystick button output, comment out to disable this functionality
+#define JOY_BTN_FAKEDATA 1
+
 // 255 = 100% throttle = 2378 watts to conform to the DaSH simulator
 #define DEFAULT_MULTIPLIER (255.0f / 2378.0f)
 
+// Print a byte as a 2-character hex value
 void printHex(uint8_t val) {
   if (val < 16) {
     Serial.write('0');
@@ -12,6 +43,7 @@ void printHex(uint8_t val) {
   Serial.print(val, HEX);
 }
 
+// Code that handles getting wattage data from the serial
 #define START_VAL 0xFFFF
 #define END_VAL 0xBEEF
 typedef struct {
@@ -50,6 +82,7 @@ uint16_t *readPacket() {
   return NULL;
 }
 
+// Return a new fake value every 0.5 seconds
 uint16_t *fakePacket() {
   static uint16_t watts = 0;
   static unsigned long lastTime = 0;
@@ -62,9 +95,12 @@ uint16_t *fakePacket() {
   }
 }
 
-
+// Values changeable from the USB command interface
+// throttle = watts * multiplier. Gets modified by boost button (if applicable)
 static float multiplier = DEFAULT_MULTIPLIER;
+// Doesn't output any joystick data while false
 static bool enabled = true;
+// Whether or not to use the fakePacket function instead of readPacket
 static bool fakeDataMode = false;
 
 
@@ -92,7 +128,20 @@ void printStatus() {
 
 // Print welcome/version and instructions
 void printInfo() {
-  Serial.println("SUMPAC pedal joystick v18. (type 'h' for help)");
+  Serial.print("SUMPAC pedal joystick v26");
+#ifdef JOY_BTN_BLINK
+  Serial.write('H'); // heartbeat
+#endif
+#ifdef JOY_BTN_FAKEDATA
+  Serial.write('F');
+#endif
+#ifdef PIN_VIEWPOT
+  Serial.write('V');
+#endif
+#ifdef PIN_BOOST
+  Serial.write('B');
+#endif
+  Serial.println(". (type 'h' for help)");
   Serial.println("Joystick output: 'e' to enable, 'd' to disable.");
   Serial.println("Fake Data Mode: 'f' (for 'fake') to enable, 'r' (for 'real') to disable.");
   Serial.println("Multiplier: '-' for default (2378 Watts = max throttle),");
@@ -114,6 +163,13 @@ void setup() {
   Serial.begin(115200);
   Serial1.begin(115200);
 
+#ifdef PIN_BOOST
+  pinMode(PIN_BOOST, INPUT);
+#endif
+#ifdef PIN_VIEWPOT
+  pinMode(PIN_VIEWPOT, INPUT);
+#endif
+  
   Joystick.begin(false);
   serialWelcome();
 }
@@ -130,30 +186,33 @@ uint8_t watts2throttle(uint16_t watts) {
   else return (uint8_t) tmp;
 }
 
-void loop() {
+// Read in any waiting characters from the USB command interface and execute any valid commands
+void doCommands() {
   static char cmd[50];
   static char cmdi = 0;
-  serialWelcome();
-
-  // Handle commands
   if (Serial) {
     int c = Serial.read();
-    if (c == 'e' || c == 'd') {
+    
+    if (c == 'e' || c == 'd') { // enable, disable
       enabled = c == 'e';
       pStatJoy();
-    } else if (c == 'f' || c == 'r') {
+    } else if (c == 'f' || c == 'r') { // fakeData, realData
       fakeDataMode = c == 'f';
       pStatFake();
-    } else if (c == 's') {
+#ifdef JOY_BTN_FAKEDATA
+      // Display fake data state on a joystick button output
+      Joystick.setButton(JOY_BTN_FAKEDATA, fakeDataMode);
+#endif
+    } else if (c == 's') { // status
       printStatus();
-    } else if (c == 'h') {
+    } else if (c == 'h') { // help
       printInfo();
     } else if (c == '-' || c == '=' || c == '+') {
       if (c == '-') multiplier = DEFAULT_MULTIPLIER;
       if (c == '=') multiplier = 1.0f;
       if (c == '+') multiplier = 2.0f;
       pStatMult();
-    } else if (c == 't') { // Command 't' start
+    } else if (c == 't') { // Command 't' (aka throttle set) start
       cmd[0] = c; cmdi = 1;
     } else if ('0' <= c && c <= '9') { // Place numbers in command buffer
       cmd[cmdi++] = c;
@@ -171,6 +230,14 @@ void loop() {
       }
     }
   }
+}
+
+void doView();
+void doBoost();
+void loop() {
+  serialWelcome();
+  
+  doCommands();
 
   // Handle fake data or incoming data from RPi
   uint16_t *watts;
@@ -188,18 +255,105 @@ void loop() {
     }
   }
 
-  // Blink button 0
-  static bool buttonState = false;
-  static unsigned long lastChange = 0;
-  // Every second, toggle state of button 0 joystick output only if enabled
-  // Also press button 1 if Fake Data Mode is enabled.
-  if (millis() > lastChange + 1000) {
-    buttonState = !buttonState;
-    if (enabled) {
-      Joystick.setButton(0, buttonState);
-      Joystick.setButton(1, fakeDataMode);
-      Joystick.sendState();
-    }
-    lastChange = millis();
+  // Increments by 1 every 0.1 seconds
+  static unsigned char timer = 0;
+  // Every 0.1 seconds sample the buttons
+  static unsigned long lastBtnUpdate = 0;
+  if (millis() > lastBtnUpdate + 100L) {
+    lastBtnUpdate = millis(); timer++;
+
+    Joystick.setButton(2, !digitalRead(PIN_RESET));
+    Joystick.setButton(3, !digitalRead(PIN_BOOST));
+
+#ifdef JOY_BTN_BLINK
+    // Every second, toggle state of button 0 joystick output
+    if (timer % 10 == 0) Joystick.setButton(JOY_BTN_BLINK, timer % 20);
+#endif
+    
+    
+#ifdef PIN_BOOST
+    doBoost();
+#endif
+#ifdef PIN_VIEWPOT
+    doView();
+#endif
+    
+    if (enabled) Joystick.sendState();
   }
 }
+
+#ifdef PIN_BOOST
+// Change the multiplier based off of a temporary power boost button to make it easier to take off
+void doBoost() {
+#ifdef PIN_BOOST_ACTIVELOW
+  bool btn = !digitalRead(PIN_BOOST);
+#else
+  bool btn = digitalRead(PIN_BOOST);
+#endif
+
+  static unsigned long boostExpiry = 0;
+  if (btn) {
+    if (multiplier != DEFAULT_MULTIPLIER * BOOST_MULTIPLIER) {
+      multiplier = DEFAULT_MULTIPLIER * BOOST_MULTIPLIER;
+      pStatMult();
+    }
+    boostExpiry = millis() + BOOST_DURATION;
+  } else if (millis() > boostExpiry && multiplier != DEFAULT_MULTIPLIER) {
+    multiplier = DEFAULT_MULTIPLIER;
+    pStatMult();
+  }
+}
+#endif
+
+#ifdef PIN_VIEWPOT
+// Change the view direction based off of the VIEWPOT potentiometer position
+void doView() {
+  int a = analogRead(PIN_VIEWPOT);
+  a -= VIEWPOT_MIN;
+#ifdef VIEWPOT_REVERSE
+  a = (VIEWPOT_MAX - VIEWPOT_MIN) - a;
+#endif
+  // Takes 5 button clicks to get all the way from center to one side * 2 sides + center = 11 positions
+  int desiredView = (a * 11) / (VIEWPOT_MAX - VIEWPOT_MIN);
+  desiredView -= 5; // center
+  if (desiredView > 5) desiredView = 5; // cut off top
+
+  // Go to the desired view
+  // Counter for current view position. Negative is left, positive is right
+  static int currentView = 0;
+  static unsigned char wait = 0;
+  if (wait) {
+    if (wait == 1) {
+      Joystick.setButton(JOY_BTN_VIEWRIGHT, false);
+      Joystick.setButton(JOY_BTN_VIEWLEFT, false);
+    }
+    wait--; // wait for 0.1 seconds (this function is called every 0.1s)
+  } else {
+    Joystick.setButton(JOY_BTN_VIEWRIGHT, false);
+    Joystick.setButton(JOY_BTN_VIEWLEFT, false);
+    if (desiredView > currentView) {
+      // Set the VIEWRIGHT button to true for 0.1 seconds to go right by 1
+      Joystick.setButton(JOY_BTN_VIEWRIGHT, true);
+      currentView++;
+      wait = 2;
+    } else if (desiredView < currentView) {
+      // Set the VIEWLEFT button to true for 0.1 seconds to go left by 1
+      Joystick.setButton(JOY_BTN_VIEWLEFT, true);
+      currentView--;
+      wait = 2;
+    }
+  }
+
+  static int debugCounter = 0;
+  if (debugCounter % 5 == 0) {
+    //Serial.print("a = "); Serial.println(a, DEC);
+    if (currentView != desiredView) {
+      Serial.print("Going from view ");
+      Serial.print(currentView, DEC);
+      Serial.print(" to ");
+      Serial.println(desiredView, DEC);
+    }
+  }
+  debugCounter++;
+}
+#endif
