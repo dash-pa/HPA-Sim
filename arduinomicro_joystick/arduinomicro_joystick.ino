@@ -16,7 +16,7 @@
 
 
 // Pin for the temporary boost button, comment out to disable this functionality
-#define PIN_BOOST 4
+#define PIN_BOOST 15
 // Uncomment if this input is active-low
 #define PIN_BOOST_ACTIVELOW
 // Boost button duration in milliseconds
@@ -26,7 +26,7 @@
 
 
 // Pin for the reset simulation button
-#define PIN_RESET 7
+#define PIN_RESET A1
 // Uncomment if this input is active-low
 #define PIN_RESET_ACTIVELOW
 // The code to run when the button changes state to active
@@ -35,6 +35,19 @@
 // The code to run when the button changes state to inactive
 #define BTN_RESET_UNPRESS Keyboard.release(KEY_ESC);Keyboard.release(KEY_LEFT_SHIFT)
 
+// Pin for the view change button
+#define PIN_VIEWCHANGE A0
+// Uncomment if this input is active-low
+#define PIN_VIEWCHANGE_ACTIVELOW
+// The code to run when the button changes state to active
+// - see https://www.arduino.cc/en/Reference/KeyboardModifiers
+#define BTN_VIEWCHANGE_PRESS Keyboard.press('v')
+// The code to run when the button changes state to inactive
+#define BTN_VIEWCHANGE_UNPRESS Keyboard.release('v')
+
+// Called whenever we get power data from the pedals, used to prevent the computer from going into screensaver mode
+// Left bracket is flaps up, which does nothing on the current SUMPAC sim
+#define KEEP_AWAKE Keyboard.write('[')
 
 // Display heartbeat on this joystick button output, comment out to disable this functionality
 #define JOY_BTN_BLINK 0
@@ -109,6 +122,8 @@ uint16_t *fakePacket() {
 static float multiplier = DEFAULT_MULTIPLIER;
 // Doesn't output any joystick data while false
 static bool enabled = true;
+// Doesn't output any keyboard data while false
+static bool kbenabled = true;
 // Whether or not to use the fakePacket function instead of readPacket
 static bool fakeDataMode = false;
 
@@ -117,6 +132,11 @@ static bool fakeDataMode = false;
 void pStatJoy() {
   if (enabled) Serial.println("Joystick output is enabled.");
   else Serial.println("Joystick output is DISABLED! ('e' to enable)");
+}
+// Print Keyboard output status
+void pStatKB() {
+  if (kbenabled) Serial.println("Keyboard output is enabled.");
+  else Serial.println("Keyboard output is DISABLED! ('k' to enable)");
 }
 // Print Fake Data Mode status
 void pStatFake() {
@@ -131,13 +151,14 @@ void pStatMult() {
 // Print statuses and values
 void printStatus() {
   pStatJoy();
+  pStatKB();
   pStatFake();
   pStatMult();
 }
 
 // Print welcome/version and instructions
 void printInfo() {
-  Serial.print("SUMPAC pedal joystick v26");
+  Serial.print("SUMPAC pedal joystick v28");
 #ifdef JOY_BTN_BLINK
   Serial.write('H'); // heartbeat
 #endif
@@ -149,6 +170,15 @@ void printInfo() {
 #endif
 #ifdef PIN_BOOST
   Serial.write('B');
+#endif
+#ifdef PIN_RESET
+  Serial.write('R');
+#endif
+#ifdef PIN_VIEWCHANGE
+  Serial.write('C');
+#endif
+#ifdef KEEP_AWAKE
+  Serial.write('A');
 #endif
   Serial.println(". (type 'h' for help)");
   Serial.println("Joystick output: 'e' to enable, 'd' to disable.");
@@ -188,6 +218,15 @@ void setup() {
 #endif
 #endif
 
+#ifdef PIN_VIEWCHANGE
+#ifdef PIN_VIEWCHANGE_ACTIVELOW
+  pinMode(PIN_VIEWCHANGE, INPUT_PULLUP);
+#else
+  pinMode(PIN_VIEWCHANGE, INPUT); // needs external pulldown resistor
+#endif
+#endif
+
+  
 #ifdef PIN_VIEWPOT
   pinMode(PIN_VIEWPOT, INPUT);
 #endif
@@ -219,6 +258,9 @@ void doCommands() {
     if (c == 'e' || c == 'd') { // enable, disable
       enabled = c == 'e';
       pStatJoy();
+    } else if (c == 'k') { // toggle keyboard enable
+      kbenabled = !kbenabled;
+      pStatKB();
     } else if (c == 'f' || c == 'r') { // fakeData, realData
       fakeDataMode = c == 'f';
       pStatFake();
@@ -276,6 +318,11 @@ void loop() {
       Serial.print(throttle, DEC);
       Serial.println("/255");
     }
+#ifdef KEEP_AWAKE
+    if (kbenabled) {
+      KEEP_AWAKE;
+    }
+#endif
   }
 
   // Increments by 1 every 0.1 seconds
@@ -290,17 +337,20 @@ void loop() {
     if (timer % 10 == 0) Joystick.setButton(JOY_BTN_BLINK, timer % 20);
 #endif
     
-#ifdef PIN_RESET
-    doBtnReset();
-    Joystick.setButton(2, !digitalRead(PIN_RESET)); // NOT NEEDED
-#endif    
-    
 #ifdef PIN_BOOST
     doBoost();
     Joystick.setButton(3, !digitalRead(PIN_BOOST)); // NOT NEEDED
 #endif
+#ifdef PIN_RESET
+    doBtnReset();
+    Joystick.setButton(2, !digitalRead(PIN_RESET)); // NOT NEEDED
+#endif    
+#ifdef PIN_VIEWCHANGE
+    doBtnViewChange();
+#endif    
+    
 #ifdef PIN_VIEWPOT
-    doView();
+    doViewPot();
 #endif
     
     if (enabled) Joystick.sendState();
@@ -317,10 +367,33 @@ void doBtnReset() {
 #endif
   
   if (btn != lastVal) {
-    if (btn) {
-      BTN_RESET_PRESS;
-    } else {
-      BTN_RESET_UNPRESS;
+    if (kbenabled) {
+      if (btn) {
+	BTN_RESET_PRESS;
+      } else {
+	BTN_RESET_UNPRESS;
+      }
+    }
+    lastVal = btn;
+  }
+}
+#endif
+#ifdef PIN_VIEWCHANGE
+void doBtnViewChange() {
+  static bool lastVal = false;
+#ifdef PIN_VIEWCHANGE_ACTIVELOW
+  bool btn = !digitalRead(PIN_VIEWCHANGE);
+#else
+  bool btn = digitalRead(PIN_VIEWCHANGE);
+#endif
+  
+  if (btn != lastVal) {
+    if (kbenabled) {
+      if (btn) {
+	BTN_VIEWCHANGE_PRESS;
+      } else {
+	BTN_VIEWCHANGE_UNPRESS;
+      }
     }
     lastVal = btn;
   }
@@ -352,7 +425,7 @@ void doBoost() {
 
 #ifdef PIN_VIEWPOT
 // Change the view direction based off of the VIEWPOT potentiometer position
-void doView() {
+void doViewPot() {
   int a = analogRead(PIN_VIEWPOT);
   a -= VIEWPOT_MIN;
 #ifdef VIEWPOT_REVERSE
