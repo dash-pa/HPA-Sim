@@ -1,6 +1,7 @@
 
 #include "Joystick.h"
 #include <stdint.h>
+#include <Keyboard.h>
 
 // Pin for the view angle potentiometer, comment out to disable this functionality
 #define PIN_VIEWPOT A2
@@ -24,8 +25,16 @@
 #define BOOST_MULTIPLIER 2.0f
 
 
-// Pin for the reset simulation button (not functional)
+// Pin for the reset simulation button
 #define PIN_RESET 7
+// Uncomment if this input is active-low
+#define PIN_RESET_ACTIVELOW
+// The code to run when the button changes state to active
+// - see https://www.arduino.cc/en/Reference/KeyboardModifiers
+#define BTN_RESET_PRESS Keyboard.press(KEY_LEFT_SHIFT);Keyboard.press(KEY_ESC)
+// The code to run when the button changes state to inactive
+#define BTN_RESET_UNPRESS Keyboard.release(KEY_ESC);Keyboard.release(KEY_LEFT_SHIFT)
+
 
 // Display heartbeat on this joystick button output, comment out to disable this functionality
 #define JOY_BTN_BLINK 0
@@ -164,13 +173,27 @@ void setup() {
   Serial1.begin(115200);
 
 #ifdef PIN_BOOST
-  pinMode(PIN_BOOST, INPUT);
+#ifdef PIN_BOOST_ACTIVELOW
+  pinMode(PIN_BOOST, INPUT_PULLUP);
+#else
+  pinMode(PIN_BOOST, INPUT); // needs external pulldown resistor
 #endif
+#endif
+
+#ifdef PIN_RESET
+#ifdef PIN_RESET_ACTIVELOW
+  pinMode(PIN_RESET, INPUT_PULLUP);
+#else
+  pinMode(PIN_RESET, INPUT); // needs external pulldown resistor
+#endif
+#endif
+
 #ifdef PIN_VIEWPOT
   pinMode(PIN_VIEWPOT, INPUT);
 #endif
   
   Joystick.begin(false);
+  Keyboard.begin();
   serialWelcome();
 }
 
@@ -261,18 +284,20 @@ void loop() {
   static unsigned long lastBtnUpdate = 0;
   if (millis() > lastBtnUpdate + 100L) {
     lastBtnUpdate = millis(); timer++;
-
-    Joystick.setButton(2, !digitalRead(PIN_RESET));
-    Joystick.setButton(3, !digitalRead(PIN_BOOST));
-
+    
 #ifdef JOY_BTN_BLINK
     // Every second, toggle state of button 0 joystick output
     if (timer % 10 == 0) Joystick.setButton(JOY_BTN_BLINK, timer % 20);
 #endif
     
+#ifdef PIN_RESET
+    doBtnReset();
+    Joystick.setButton(2, !digitalRead(PIN_RESET)); // NOT NEEDED
+#endif    
     
 #ifdef PIN_BOOST
     doBoost();
+    Joystick.setButton(3, !digitalRead(PIN_BOOST)); // NOT NEEDED
 #endif
 #ifdef PIN_VIEWPOT
     doView();
@@ -281,6 +306,26 @@ void loop() {
     if (enabled) Joystick.sendState();
   }
 }
+
+#ifdef PIN_RESET
+void doBtnReset() {
+  static bool lastVal = false;
+#ifdef PIN_RESET_ACTIVELOW
+  bool btn = !digitalRead(PIN_RESET);
+#else
+  bool btn = digitalRead(PIN_RESET);
+#endif
+  
+  if (btn != lastVal) {
+    if (btn) {
+      BTN_RESET_PRESS;
+    } else {
+      BTN_RESET_UNPRESS;
+    }
+    lastVal = btn;
+  }
+}
+#endif
 
 #ifdef PIN_BOOST
 // Change the multiplier based off of a temporary power boost button to make it easier to take off
