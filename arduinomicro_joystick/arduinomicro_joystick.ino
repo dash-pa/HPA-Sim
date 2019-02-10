@@ -48,6 +48,8 @@
 // Called whenever we get power data from the pedals, used to prevent the computer from going into screensaver mode
 // Left bracket is flaps up, which does nothing on the current SUMPAC sim
 #define KEEP_AWAKE Keyboard.write('[')
+// Minimum milliseconds between keep awake events
+#define KEEP_AWAKE_PERIOD 5000L
 
 // Display heartbeat on this joystick button output, comment out to disable this functionality
 #define JOY_BTN_BLINK 0
@@ -158,7 +160,7 @@ void printStatus() {
 
 // Print welcome/version and instructions
 void printInfo() {
-  Serial.print("SUMPAC pedal joystick v28");
+  Serial.print("SUMPAC pedal joystick v29");
 #ifdef JOY_BTN_BLINK
   Serial.write('H'); // heartbeat
 #endif
@@ -308,6 +310,9 @@ void loop() {
   uint16_t *watts;
   if (fakeDataMode) watts = fakePacket();
   else watts = readPacket();
+#ifdef KEEP_AWAKE
+  static unsigned long keepAwakeTimer = 0L;
+#endif
   if (watts != NULL) {
     uint8_t throttle = watts2throttle(*watts);
     if (enabled) setThrottle(throttle);
@@ -319,8 +324,9 @@ void loop() {
       Serial.println("/255");
     }
 #ifdef KEEP_AWAKE
-    if (kbenabled) {
+    if (kbenabled && (millis() >= keepAwakeTimer)) {
       KEEP_AWAKE;
+      keepAwakeTimer = millis() + KEEP_AWAKE_PERIOD;
     }
 #endif
   }
