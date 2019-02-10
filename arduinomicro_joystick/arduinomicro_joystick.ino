@@ -50,6 +50,8 @@
 #define KEEP_AWAKE Keyboard.write('[')
 // Minimum milliseconds between keep awake events
 #define KEEP_AWAKE_PERIOD 5000L
+// Watts reading needs to be greater than this number to trigger keep-awake
+#define KEEP_AWAKE_THRESHOLD 3
 
 // Display heartbeat on this joystick button output, comment out to disable this functionality
 #define JOY_BTN_BLINK 0
@@ -160,7 +162,7 @@ void printStatus() {
 
 // Print welcome/version and instructions
 void printInfo() {
-  Serial.print("SUMPAC pedal joystick v29");
+  Serial.print("SUMPAC pedal joystick v30");
 #ifdef JOY_BTN_BLINK
   Serial.write('H'); // heartbeat
 #endif
@@ -324,7 +326,7 @@ void loop() {
       Serial.println("/255");
     }
 #ifdef KEEP_AWAKE
-    if (kbenabled && (millis() >= keepAwakeTimer)) {
+    if (kbenabled && (watts > KEEP_AWAKE_THRESHOLD) && (millis() >= keepAwakeTimer)) {
       KEEP_AWAKE;
       keepAwakeTimer = millis() + KEEP_AWAKE_PERIOD;
     }
