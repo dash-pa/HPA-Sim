@@ -6,12 +6,13 @@ FGFS_PARAMS="--aircraft=dash --enable-fullscreen --fov=80 --enable-hud --heading
 
 VIDEO_PLAYER=/usr/bin/vlc
 # -R == repeat
-VIDEO_PARAMS="-R --fullscreen"
+# VIDEO_PARAMS="-R --fullscreen"
+VIDEO_PARAMS="-R"
 IDLE_TIME_VIDEO='/home/kiosk/Videos/IDLE_VIDEO'
 
 # all times in seconds
-let PILOT_TIMEOUT=120
-let IDLE_MS=20*1000
+let PILOT_TIMEOUT=300
+let IDLE_MS=30*1000
 
 run_fgfs()
 {
@@ -25,6 +26,7 @@ run_fgfs()
 	FG_START=${SECONDS}
 }
 
+# Save code for when we want to try to have quick restart after playing video.
 pause_fgfs()
 {
 	# 33 == 'p' == pause/unpause (toggle)
@@ -42,14 +44,11 @@ unpause_fgfs()
 	FG_START=${SECONDS}
 }
 
-stop_video()
-{
-	killall "${VIDEO_PLAYER}"
-}
-
 play_video()
 {
-	pause_fgfs
+	killall "$FGFS"
+	sleep 1
+
 	${VIDEO_PLAYER} ${VIDEO_PARAMS} "${IDLE_TIME_VIDEO}" &
 
 	# This might be too sensitive: _any_ input will trip this.
@@ -58,10 +57,9 @@ play_video()
 		sleep 1
 	done
 
-	stop_video
+	killall "${VIDEO_PLAYER}"
 
 	notify-send 'SUMPAC Video' 'Video interrupted by new pilot - Prepare to fly!'
-	unpause_fgfs
 }
 
 while :
@@ -70,9 +68,13 @@ do
 
 	let IDLE=$(xprintidle)
 	if [ $? -ne 0 ] ; then
-		# couldn't contact X server :( (session ended?)
-		killall  "$FGFS"
-		break
+		sleep 1
+		let IDLE=$(xprintidle)
+		if [ $? -ne 0 ] ; then
+			# couldn't contact X server :( (session ended?)
+			killall  "$FGFS"
+			break
+		fi
 	fi
 
 	if [ $IDLE -gt $IDLE_MS ] ; then
