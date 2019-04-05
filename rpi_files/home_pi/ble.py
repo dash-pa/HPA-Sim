@@ -4,6 +4,8 @@ from __future__ import print_function
 import gattlib, os, time, struct, sys, serial, traceback
 import xml.etree.ElementTree as xmlET
 
+#sys.stdout.flush()
+
 FATAL_LOG_FILE = '/boot/sumpac/crashlog.txt'
 
 CONFIG_FILE = '/boot/sumpac/config.xml'
