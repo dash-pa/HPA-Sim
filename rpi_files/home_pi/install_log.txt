@@ -1,0 +1,17 @@
+sudo raspi-config # enable ssh
+sudo apt-get install emacs screen bluez python-bluez libglib2.0-dev libbluetooth-dev libboost-thread-dev libboost-python-dev python-dev python-serial
+/*
+installed gattlib by installing pybluez.ble from source
+download it, extract it, get a bunch of swap space, then
+>sudo setup.py build
+>sudo setup.py install
+It shouldn't hang on anything for more than half an hour
+with the swap space, it might work to just install gattlib directly:
+sudo pip install gattlib
+*/
+sudo emacs /etc/init.d/startup.bash
+ln -s /etc/init.d/startup.bash ./startup.bash
+sudo update-rc.d startup.bash defaults
+// run startup.bash in rc.local because the update-rc thing doesn't work
+
+// Added /boot/sumpac/config.xml to be used by ble.py
