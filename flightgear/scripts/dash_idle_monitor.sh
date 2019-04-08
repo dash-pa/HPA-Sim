@@ -26,11 +26,18 @@ run_fgfs()
 	FG_START=${SECONDS}
 }
 
-# Save code for when we want to try to have quick restart after playing video.
 pause_fgfs()
 {
-	# 33 == 'p' == pause/unpause (toggle)
+	# shift-w == W == toggle full screen mode
+	xdotool key 50 25
+
+ 	# 33 == 'p' == pause/unpause (toggle)
 	xdotool key 33
+
+	# If toggling full screen mode doesn't allow video play to
+	# to get full screen, kill FGFS and let the main loop restart fgfs.
+	# comment out the above lines and everything in unpause_fgfs() below.
+	# killall "$FGFS"
 }
 
 unpause_fgfs()
@@ -41,23 +48,28 @@ unpause_fgfs()
 	# same keypress to unpause
 	xdotool key 33
 
+	# shift-w == W == toggle full screen mode
+	xdotool key 50 25
+
 	FG_START=${SECONDS}
 }
 
 play_video()
 {
-	killall "$FGFS"
+	pause_fgfs
 	sleep 1
 
 	${VIDEO_PLAYER} ${VIDEO_PARAMS} "${IDLE_TIME_VIDEO}" &
 
-	# This might be too sensitive: _any_ input will trip this.
-	# In other words, might want to "debounce" xprintidle return values.
-	while [ $(xprintidle) -gt $IDLE_MS ] ; do
-		sleep 1
+	# xprintidle is too sensitive: _any_ input will trip it. :(
+	let key=""
+	while [ -z "$key" ] ; do
+		read -n 1 key
 	done
 
 	killall "${VIDEO_PLAYER}"
+	sleep 1
+	unpause_fgfs
 
 	notify-send 'SUMPAC Video' 'Video interrupted by new pilot - Prepare to fly!'
 }
