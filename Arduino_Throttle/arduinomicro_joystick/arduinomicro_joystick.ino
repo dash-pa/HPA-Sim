@@ -49,7 +49,8 @@
 // Left bracket is flaps up, which does nothing on the current SUMPAC sim
 #define KEEP_AWAKE Keyboard.write('[')
 // Minimum milliseconds between keep awake events
-#define KEEP_AWAKE_PERIOD 5000L
+// tried changing KEEP_AWAKE_PERIOD to UL data type instead of L to see if it makes a difference
+#define KEEP_AWAKE_PERIOD 5000UL
 // Watts reading needs to be greater than this number to trigger keep-awake
 #define KEEP_AWAKE_THRESHOLD 3
 
@@ -313,7 +314,8 @@ void loop() {
   if (fakeDataMode) watts = fakePacket();
   else watts = readPacket();
 #ifdef KEEP_AWAKE
-  static unsigned long keepAwakeTimer = 0L;
+// tried changing keepAwakeTimer to UL data type instead of L to see if it makes a difference
+  static unsigned long keepAwakeTimer = 0UL;
 #endif
   if (watts != NULL) {
     uint8_t throttle = watts2throttle(*watts);
