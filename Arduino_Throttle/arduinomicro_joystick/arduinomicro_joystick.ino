@@ -14,15 +14,27 @@
 #define JOY_BTN_VIEWRIGHT 10
 #define JOY_BTN_VIEWLEFT 11
 
+// Pin for the Aircraft Reset (aka "Reset Aircraft")
+//that positions aircraft on runway 27 when airplane is at Lasham
+//and Kremer Contest in Aircraft Options is set to on
+#define PIN_AIRCRAFT_RESET 14           
+// Uncomment if this input is active-low
+#define PIN_AIRCRAFT_RESET_ACTIVELOW
+// The code to run when the button changes state to active
+// - see https://www.arduino.cc/en/Reference/KeyboardModifiers
+#define BTN_AIRCRAFT_RESET_PRESS  Keyboard.press('r')
+// The code to run when the button changes state to inactive
+#define BTN_AIRCRAFT_RESET_UNPRESS Keyboard.release('r')
+
 
 // Pin for the temporary boost button, comment out to disable this functionality
 #define PIN_BOOST 15
 // Uncomment if this input is active-low
 #define PIN_BOOST_ACTIVELOW
-// Boost button duration in milliseconds
-#define BOOST_DURATION 10000L
-// Set to 2.0f for 2x boost, 3.0f for 3x boost, etc
-#define BOOST_MULTIPLIER 2.0f
+// Boost button duration in milliseconds (changed to 15000 ms on 28-Sep-2019)
+#define BOOST_DURATION 15000L
+// Set to 2.0f for 2x boost, 3.0f for 3x boost, etc (changed to 3.0f on 28-Sep-2019)
+#define BOOST_MULTIPLIER 3.0f
 
 
 // Pin for the reset simulation button
@@ -44,6 +56,8 @@
 #define BTN_VIEWCHANGE_PRESS Keyboard.press('v')
 // The code to run when the button changes state to inactive
 #define BTN_VIEWCHANGE_UNPRESS Keyboard.release('v')
+
+
 
 // Called whenever we get power data from the pedals, used to prevent the computer from going into screensaver mode
 // Left bracket is flaps up, which does nothing on the current SUMPAC sim
@@ -163,7 +177,7 @@ void printStatus() {
 
 // Print welcome/version and instructions
 void printInfo() {
-  Serial.print("SUMPAC pedal joystick v30");
+  Serial.print("SUMPAC pedal joystick v31");
 #ifdef JOY_BTN_BLINK
   Serial.write('H'); // heartbeat
 #endif
@@ -220,6 +234,14 @@ void setup() {
   pinMode(PIN_RESET, INPUT_PULLUP);
 #else
   pinMode(PIN_RESET, INPUT); // needs external pulldown resistor
+#endif
+#endif
+
+#ifdef PIN_AIRCRAFT_RESET
+#ifdef PIN_AIRCRAFT_RESET_ACTIVELOW
+  pinMode(PIN_AIRCRAFT_RESET, INPUT_PULLUP);
+#else
+  pinMode(PIN_AIRCRAFT_RESET, INPUT); // needs external pulldown resistor
 #endif
 #endif
 
@@ -354,7 +376,10 @@ void loop() {
 #ifdef PIN_RESET
     doBtnReset();
     Joystick.setButton(2, !digitalRead(PIN_RESET)); // NOT NEEDED
-#endif    
+#endif 
+#ifdef PIN_AIRCRAFT_RESET
+    doBtnAircraftReset();
+#endif      
 #ifdef PIN_VIEWCHANGE
     doBtnViewChange();
 #endif    
@@ -388,6 +413,30 @@ void doBtnReset() {
   }
 }
 #endif
+
+#ifdef PIN_AIRCRAFT_RESET
+void doBtnAircraftReset() {
+  static bool lastVal = false;
+#ifdef PIN_AIRCRAFT_RESET_ACTIVELOW
+  bool btn = !digitalRead(PIN_AIRCRAFT_RESET);
+#else
+  bool btn = digitalRead(PIN_AIRCRAFT_RESET);
+#endif
+  
+  if (btn != lastVal) {
+    if (kbenabled) {
+      if (btn) {
+  BTN_AIRCRAFT_RESET_PRESS;
+      } else {
+  BTN_AIRCRAFT_RESET_UNPRESS;
+      }
+    }
+    lastVal = btn;
+  }
+}
+#endif
+
+
 #ifdef PIN_VIEWCHANGE
 void doBtnViewChange() {
   static bool lastVal = false;
