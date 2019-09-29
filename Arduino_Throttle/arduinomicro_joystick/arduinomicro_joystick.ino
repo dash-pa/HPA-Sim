@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <Keyboard.h>
 
+//change log notes starting with v32
+//v32 -- change rate of Keep Awake to 60000 milliseconds
+//coming up -- v33 -- fix view change knob centering problem (limit to 3 moves each side of center, and auto re-center
+
 // Pin for the view angle potentiometer, comment out to disable this functionality
 #define PIN_VIEWPOT A2
 // Calibration values
@@ -63,8 +67,8 @@
 // Left bracket is flaps up, which does nothing on the current SUMPAC sim
 #define KEEP_AWAKE Keyboard.write('[')
 // Minimum milliseconds between keep awake events
-// tried changing KEEP_AWAKE_PERIOD to UL data type instead of L to see if it makes a difference
-#define KEEP_AWAKE_PERIOD 5000UL
+// changed KEEP_AWAKE_PERIOD to UL data type (instead of L) to fix timing bug
+#define KEEP_AWAKE_PERIOD 60000UL
 // Watts reading needs to be greater than this number to trigger keep-awake
 #define KEEP_AWAKE_THRESHOLD 3
 
@@ -177,7 +181,7 @@ void printStatus() {
 
 // Print welcome/version and instructions
 void printInfo() {
-  Serial.print("SUMPAC pedal joystick v31");
+  Serial.print("SUMPAC pedal joystick v32");
 #ifdef JOY_BTN_BLINK
   Serial.write('H'); // heartbeat
 #endif
