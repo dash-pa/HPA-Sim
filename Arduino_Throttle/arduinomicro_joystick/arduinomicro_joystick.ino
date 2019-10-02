@@ -7,6 +7,7 @@
 //v32 -- change rate of Keep Awake to 60000 milliseconds
 //v33 -- fixed bug re: *watts comparison for KEEP_AWAKE test
 //v34 -- fix view change knob centering problem (limit to 3 moves each side of center, and auto re-center)
+//v35 -- fix notes on number of view change knob 'clicks' (4 each side) +
 
 // Pin for the view angle potentiometer, comment out to disable this functionality
 #define PIN_VIEWPOT A2
@@ -62,7 +63,7 @@
 // The code to run when the button changes state to inactive
 #define BTN_VIEWCHANGE_UNPRESS Keyboard.release('v')
 
-//The FlightGear center view shortcut
+//The FlightGear center view shortcut (set every time view change knob is centered)
 #define RECENTER_VIEW_PRESS Keyboard.press(KEY_LEFT_SHIFT);Keyboard.press(KEY_UP_ARROW)
 #define RECENTER_VIEW_UNPRESS Keyboard.release(KEY_UP_ARROW);Keyboard.release(KEY_LEFT_SHIFT)
 
@@ -343,7 +344,7 @@ void loop() {
   if (fakeDataMode) watts = fakePacket();
   else watts = readPacket();
 #ifdef KEEP_AWAKE
-// tried changing keepAwakeTimer to UL data type instead of L to see if it makes a difference
+// changed keepAwakeTimer to UL data type instead of L to fix KEEP_AWAKE timing bug
   static unsigned long keepAwakeTimer = 0UL;
 #endif
   if (watts != NULL) {
