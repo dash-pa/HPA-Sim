@@ -6,7 +6,7 @@
 //change log notes starting with v32
 //v32 -- change rate of Keep Awake to 60000 milliseconds
 //v33 -- fixed bug re: *watts comparison for KEEP_AWAKE test
-//coming up -- v34 -- fix view change knob centering problem (limit to 3 moves each side of center, and auto re-center)
+//v34 -- fix view change knob centering problem (limit to 3 moves each side of center, and auto re-center)
 
 // Pin for the view angle potentiometer, comment out to disable this functionality
 #define PIN_VIEWPOT A2
@@ -62,7 +62,9 @@
 // The code to run when the button changes state to inactive
 #define BTN_VIEWCHANGE_UNPRESS Keyboard.release('v')
 
-
+//The FlightGear center view shortcut
+#define RECENTER_VIEW_PRESS Keyboard.press(KEY_LEFT_SHIFT);Keyboard.press(KEY_UP_ARROW)
+#define RECENTER_VIEW_UNPRESS Keyboard.release(KEY_UP_ARROW);Keyboard.release(KEY_LEFT_SHIFT)
 
 // Called whenever we get power data from the pedals, used to prevent the computer from going into screensaver mode
 // Left bracket is flaps up, which does nothing on the current SUMPAC sim
@@ -499,6 +501,9 @@ void doViewPot() {
   int desiredView = (a * 11) / (VIEWPOT_MAX - VIEWPOT_MIN);
   desiredView -= 5; // center
   if (desiredView > 5) desiredView = 5; // cut off top
+  if (desiredView == 5) desiredView =4; // limit look 'right' to not go all the way 150 deg
+  if (desiredView == -5) desiredView =-4; // limit look 'left' to not go all the way 150 deg
+
 
   // Go to the desired view
   // Counter for current view position. Negative is left, positive is right
@@ -508,12 +513,17 @@ void doViewPot() {
     if (wait == 1) {
       Joystick.setButton(JOY_BTN_VIEWRIGHT, false);
       Joystick.setButton(JOY_BTN_VIEWLEFT, false);
+      RECENTER_VIEW_UNPRESS;
     }
     wait--; // wait for 0.1 seconds (this function is called every 0.1s)
   } else {
     Joystick.setButton(JOY_BTN_VIEWRIGHT, false);
     Joystick.setButton(JOY_BTN_VIEWLEFT, false);
-    if (desiredView > currentView) {
+    if (desiredView == 0 && currentView != 0) {
+      currentView = 0;
+      RECENTER_VIEW_PRESS;
+      wait = 2;
+    } else if (desiredView > currentView) {
       // Set the VIEWRIGHT button to true for 0.1 seconds to go right by 1
       Joystick.setButton(JOY_BTN_VIEWRIGHT, true);
       currentView++;
