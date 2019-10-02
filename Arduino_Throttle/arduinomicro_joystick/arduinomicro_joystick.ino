@@ -5,7 +5,8 @@
 
 //change log notes starting with v32
 //v32 -- change rate of Keep Awake to 60000 milliseconds
-//coming up -- v33 -- fix view change knob centering problem (limit to 3 moves each side of center, and auto re-center
+//v33 -- fixed bug re: *watts comparison for KEEP_AWAKE test
+//coming up -- v34 -- fix view change knob centering problem (limit to 3 moves each side of center, and auto re-center)
 
 // Pin for the view angle potentiometer, comment out to disable this functionality
 #define PIN_VIEWPOT A2
@@ -354,7 +355,7 @@ void loop() {
       Serial.println("/255");
     }
 #ifdef KEEP_AWAKE
-    if (kbenabled && (watts > KEEP_AWAKE_THRESHOLD) && (millis() >= keepAwakeTimer)) {
+    if (kbenabled && (watts != NULL) && (*watts > KEEP_AWAKE_THRESHOLD) && (millis() >= keepAwakeTimer)) {
       KEEP_AWAKE;
       keepAwakeTimer = millis() + KEEP_AWAKE_PERIOD;
     }
