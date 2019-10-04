@@ -6,8 +6,9 @@
 //change log notes starting with v32
 //v32 -- change rate of Keep Awake to 60000 milliseconds
 //v33 -- fixed bug re: *watts comparison for KEEP_AWAKE test
-//v34 -- fix view change knob centering problem (limit to 3 moves each side of center, and auto re-center)
-//v35 -- fix notes on number of view change knob 'clicks' (4 each side) +
+//v34 -- fix view change knob centering problem (limit to 4 moves each side of center, and auto re-center)
+//v35 -- fix notes on number of view change knob 'clicks' (4 each side) + fix some other nots
+//v36 -- change view change knob to limit to 3 clicks each side
 
 // Pin for the view angle potentiometer, comment out to disable this functionality
 #define PIN_VIEWPOT A2
@@ -502,8 +503,8 @@ void doViewPot() {
   int desiredView = (a * 11) / (VIEWPOT_MAX - VIEWPOT_MIN);
   desiredView -= 5; // center
   if (desiredView > 5) desiredView = 5; // cut off top
-  if (desiredView == 5) desiredView =4; // limit look 'right' to not go all the way 150 deg
-  if (desiredView == -5) desiredView =-4; // limit look 'left' to not go all the way 150 deg
+  if (desiredView == 5) desiredView =3; // limit look 'right' to not go all the way 150 deg, (stop at 90 deg)
+  if (desiredView == -5) desiredView =-3; // limit look 'left' to not go all the way 150 deg, (stop at 90 deg)
 
 
   // Go to the desired view
